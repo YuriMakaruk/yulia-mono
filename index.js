@@ -100,7 +100,6 @@ app.post('/webhook', async (req, res) => {
     console.log('Received webhook:', req.body);
 
     await performFunction(); // Call your async function
-    await fetchAccountTwo(); // Call the second async function
     isProcessing = false; // Reset flag after processing
     res.sendStatus(200);
 });
