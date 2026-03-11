@@ -92,6 +92,40 @@ Transaction details: ${transactionText}`
 
 let isProcessing = false;
 
+// Function to register webhook with Monobank
+async function registerWebhook() {
+    try {
+        const response = await fetch('https://api.monobank.ua/personal/webhook', {
+            method: 'POST',
+            headers: {
+                'X-Token': MONOBANK_TOKEN,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ webHookUrl: MONOBANK_WEBHOOK_URL })
+        });
+
+        if (response.ok) {
+            console.log('✓ Webhook successfully registered at', new Date().toISOString());
+            return true;
+        } else {
+            console.error('✗ Webhook registration failed:', response.status, response.statusText);
+            return false;
+        }
+    } catch (error) {
+        console.error('✗ Error registering webhook:', error.message);
+        return false;
+    }
+}
+
+// Register webhook immediately on startup
+registerWebhook();
+
+// Re-register webhook every 12 hours to keep it active
+setInterval(() => {
+    console.log('Performing periodic webhook re-registration...');
+    registerWebhook();
+}, 12 * 60 * 60 * 1000); // 12 hours in milliseconds
+
 app.post('/webhook', async (req, res) => {
     if (isProcessing) {
         console.log('Already processing, ignoring duplicate webhook');
@@ -135,18 +169,9 @@ app.post(`/telegram`, async (req, res) => {
     // Handle callback query from button
     if (body.callback_query && body.callback_query.data === 'unfreeze_webhook') {
         // 2. Send Monobank webhook registration request
-        const monobankResponse = await fetch('https://api.monobank.ua/personal/webhook', {
-            method: 'POST',
-            headers: {
-                'X-Token': MONOBANK_TOKEN,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ webHookUrl: MONOBANK_WEBHOOK_URL })
-        });
-        let resultText = 'Webhook registration failed.';
-        if (monobankResponse.ok) {
-            resultText = 'Webhook successfully registered!';
-        }
+        const success = await registerWebhook();
+        const resultText = success ? 'Webhook successfully registered!' : 'Webhook registration failed.';
+
         // Answer callback query
         await fetch(`https://api.telegram.org/bot${telegramToken}/answerCallbackQuery`, {
             method: 'POST',
